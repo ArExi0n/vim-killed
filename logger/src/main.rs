@@ -52,7 +52,7 @@ impl fmt::Display for ParsedLine {
             }
         }
 
-        return write!(f, " {} {}", self.function_name, self.args.join(", "));
+        write!(f, " {} {}", self.function_name, self.args.join(", "))
     }
 }
 
@@ -76,7 +76,7 @@ impl fmt::Display for ParsedLineError {
 
 impl From<ParseIntError> for ParsedLineError {
     fn from(_: ParseIntError) -> Self {
-        return ParsedLineError::BadNumber;
+        ParsedLineError::BadNumber
     }
 }
 
@@ -115,22 +115,22 @@ fn main() -> Result<(), Box<dyn Error>> {
         i += 1;
     }
 
-    if file.is_some() {
-        let file = File::open(file.unwrap())?;
+    if let Some(file_path) = file {
+        let file = File::open(file_path)?;
         let reader = BufReader::new(file);
         interact_with_lines(parse_lines(game_id, reader)?)?;
     } else {
         for line in io::stdin().lock().lines() {
-            print!("{}\n", line?);
+            println!("{}", line?);
         }
     }
 
-    return Ok(());
+    Ok(())
 }
 
-fn group_parsed_line<'a>(plines: &'a Vec<ParsedLine>) -> Vec<Vec<&'a ParsedLine>> {
+fn group_parsed_line<'a>(plines: &'a [ParsedLine]) -> Vec<Vec<&'a ParsedLine>> {
     let mut lines: Vec<Vec<&'a ParsedLine>> = vec![];
-    if plines.len() == 0 {
+    if plines.is_empty() {
         return lines;
     }
 
@@ -148,10 +148,10 @@ fn group_parsed_line<'a>(plines: &'a Vec<ParsedLine>) -> Vec<Vec<&'a ParsedLine>
         prev_line = i;
     }
 
-    if current_group.len() > 0 {
+    if !current_group.is_empty() {
         lines.push(current_group);
     }
-    return lines;
+    lines
 }
 
 fn interact_with_lines(lines: Vec<ParsedLine>) -> Result<(), Box<dyn Error>> {
@@ -160,8 +160,8 @@ fn interact_with_lines(lines: Vec<ParsedLine>) -> Result<(), Box<dyn Error>> {
     let mut idx: i32 = 0;
     let grouped_lines = group_parsed_line(&lines);
 
-    if grouped_lines.len() == 0 {
-        print!("Sorry, no data chump\n");
+    if grouped_lines.is_empty() {
+        println!("Sorry, no data chump");
         return Ok(());
     }
 
@@ -181,7 +181,7 @@ fn interact_with_lines(lines: Vec<ParsedLine>) -> Result<(), Box<dyn Error>> {
             _ => {}
         }
 
-        print!("XXXX idx {}\n", idx);
+        println!("XXXX idx {}", idx);
         let group = &grouped_lines[idx as usize];
         let mut first = true;
         for item in group {
@@ -207,7 +207,7 @@ fn interact_with_lines(lines: Vec<ParsedLine>) -> Result<(), Box<dyn Error>> {
 
         stdout.flush()?;
     }
-    return Ok(());
+    Ok(())
 }
 
 fn parse_lines<T: std::io::BufRead>(
@@ -221,19 +221,19 @@ fn parse_lines<T: std::io::BufRead>(
 
         match parse(game_id, line.as_str()) {
             Ok(v) => {
-                print!("Class name insertion (gentle baby) {}\n", v.class_name);
+                println!("Class name insertion (gentle baby) {}", v.class_name);
                 plines.push(v);
             }
 
             Err(ParsedLineError::MismatchGameId) => {}
 
             Err(e) => {
-                print!("I have found an err, and i have a head ache {:?}\n", e);
+                println!("I have found an err, and i have a head ache {:?}", e);
             }
         }
     }
 
-    return Ok(plines);
+    Ok(plines)
 }
 
 fn parse(game_id: Option<i32>, og_line: &str) -> Result<ParsedLine, ParsedLineError> {
@@ -250,14 +250,13 @@ fn parse(game_id: Option<i32>, og_line: &str) -> Result<ParsedLine, ParsedLineEr
     let (class, line) = parse_class_name(line)?;
     let line = pop_separator(line, ' ')?;
 
-    if game_id.is_some() {
-        let gid = game_id.unwrap();
-        if match class.parent_id {
+    if let Some(gid) = game_id
+        && match class.parent_id {
             Some(v) => gid != v,
             None => gid != id,
-        } {
-            return Err(ParsedLineError::MismatchGameId);
         }
+    {
+        return Err(ParsedLineError::MismatchGameId);
     }
 
     let (function_name, line) = take_until_whitespace(line)?;
@@ -269,20 +268,20 @@ fn parse(game_id: Option<i32>, og_line: &str) -> Result<ParsedLine, ParsedLineEr
     let (args, line) = parse_state(line)?;
 
     assert!(
-        line.len() == 0,
+        line.is_empty(),
         "I expected line to be 0 but got {}: with contents {}",
         line.len(),
         line
     );
 
-    return Ok(ParsedLine {
+    Ok(ParsedLine {
         function_name: function_name.to_string(),
         class_name: class.class_name.to_string(),
         id,
         parent: class.parent_class_name,
         state: states.iter().map(|x| x.to_string()).collect(),
         args: args.iter().map(|x| x.to_string()).collect(),
-    });
+    })
 }
 
 #[derive(Debug)]
@@ -292,7 +291,7 @@ struct ParsedClassName {
     parent_class_name: Option<String>,
 }
 
-fn parse_state<'a>(line: &'a str) -> Result<(Vec<&'a str>, &'a str), ParsedLineError> {
+fn parse_state(line: &str) -> Result<(Vec<&str>, &str), ParsedLineError> {
     let (state_var_count, remaining) = parse_number::<i32>(line)?;
 
     let remaining = pop_separator(remaining, ' ')?;
@@ -308,7 +307,7 @@ fn parse_state<'a>(line: &'a str) -> Result<(Vec<&'a str>, &'a str), ParsedLineE
         states.push(state);
         line_consumed = line.len() - remaining.len();
     }
-    return Ok((states, &line[line_consumed..]));
+    Ok((states, &line[line_consumed..]))
 }
 
 fn parse_class_name(line: &str) -> Result<(ParsedClassName, &str), ParsedLineError> {
@@ -332,14 +331,14 @@ fn parse_class_name(line: &str) -> Result<(ParsedClassName, &str), ParsedLineErr
     let (_, rest_of_class_name) = take_until(rest_of_class_name, ':')?;
     let (class_name, _) = take_until_whitespace(rest_of_class_name)?;
 
-    return Ok((
+    Ok((
         ParsedClassName {
             class_name: class_name.to_string(),
             parent_id: Some(parent_id),
             parent_class_name: Some(parent_class.to_string()),
         },
         rest_of_string,
-    ));
+    ))
 }
 
 fn parse_number<T>(string: &str) -> Result<(T, &str), ParsedLineError>
@@ -360,7 +359,7 @@ fn pop_separator(string: &str, separator: char) -> Result<&str, ParsedLineError>
     let count = string
         .chars()
         .take_while(|c| {
-            return c == &separator;
+            c == &separator
         })
         .count();
 
@@ -368,18 +367,18 @@ fn pop_separator(string: &str, separator: char) -> Result<&str, ParsedLineError>
         return Err(ParsedLineError::BadSeparator);
     }
 
-    return Ok(&string[1..]);
+    Ok(&string[1..])
 }
 
 fn take_until_whitespace(string: &str) -> Result<(&str, &str), ParsedLineError> {
     let count = string
         .chars()
         .take_while(|c| {
-            return !c.is_whitespace();
+            !c.is_whitespace()
         })
         .count();
 
-    return Ok((&string[..count], &string[count..]));
+    Ok((&string[..count], &string[count..]))
 }
 
 fn take_n_characters(string: &str, n: usize) -> Result<(&str, &str), ParsedLineError> {
@@ -387,16 +386,16 @@ fn take_n_characters(string: &str, n: usize) -> Result<(&str, &str), ParsedLineE
         return Err(ParsedLineError::NotEnoughCharacters);
     }
 
-    return Ok((&string[..n], &string[n..]));
+    Ok((&string[..n], &string[n..]))
 }
 
 fn take_until(string: &str, character: char) -> Result<(&str, &str), ParsedLineError> {
     let count = string
         .chars()
         .take_while(|c| {
-            return c != &character;
+            c != &character
         })
         .count();
 
-    return Ok((&string[0..count], &string[count..]));
+    Ok((&string[0..count], &string[count..]))
 }
